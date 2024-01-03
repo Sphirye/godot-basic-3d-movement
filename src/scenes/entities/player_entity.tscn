@@ -1,0 +1,159 @@
+[gd_scene load_steps=8 format=3 uid="uid://c6r8yvgvflcje"]
+
+[ext_resource type="Script" path="res://src/scripts/player_script.gd" id="1_npw0g"]
+[ext_resource type="PackedScene" uid="uid://hj50wl7cgoen" path="res://src/scenes/entities/debug_player_entity.tscn" id="3_eh68r"]
+[ext_resource type="Script" path="res://src/scripts/player_camera_script.gd" id="3_tsb00"]
+[ext_resource type="SpriteFrames" uid="uid://dvhh80e7h3odf" path="res://src/animations/starfruit_frames.tres" id="4_bhcqr"]
+[ext_resource type="Script" path="res://src/scripts/player_sound_script.gd" id="5_5j4h3"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_e685i"]
+size = Vector3(0.815, 1.3, 1)
+
+[sub_resource type="GDScript" id="GDScript_qfsao"]
+script/source = "extends AnimatedSprite3D
+
+@onready var player: Player_entity = get_node(\"../\")
+@onready var statuses := Player_entity.StatusType
+@onready var blink_timer := $BlinkTimer
+
+var is_timer_running: bool = false
+
+func _process(_delta):
+	_adjust_sprite_direction()
+	
+	match (player.status):	
+		(statuses.UNDEFINED):
+			play(\"falling\")
+		
+		(statuses.WALKING): 
+			play(\"running\")
+			
+		(statuses.BLASTING):
+			play(\"blasting\")
+			
+		(statuses.JUMPING):
+			play(\"jumping\", 2)
+
+		(statuses.FALLING):
+			if (animation != \"jump_rolling\"):	
+				play(\"falling\")
+			
+		(statuses.DOUBLE_JUMPING):
+			if (player.velocity.y > 0):
+				play(\"double_jump\")
+				
+			if (player.velocity.y < 1 and player.velocity.y > -1):
+				_play_animation_once(\"jump_rolling\", 2)
+			
+		(statuses.STANDING):
+			_landing_handler()
+			
+			if (animation != \"landing\" and animation != \"standing\"):
+				play(\"standing\", 0)
+				frame_progress = 1
+			
+			#Start blink timer
+			if (not is_timer_running):
+				frame_progress = 1
+				blink_timer.start()
+				is_timer_running = true
+	
+		(statuses.SLIDING):
+			if (player.velocity.x != 0):
+				play(\"sliding\")
+			else:
+				_play_animation_once(\"standing\", 0)
+
+func _adjust_sprite_direction() -> void:
+	if player.direction.x < 0:
+		flip_h = true
+		
+	if player.direction.x > 0:
+		flip_h = false
+
+func _on_animation_finished() -> void:
+	if (animation == \"jump_rolling\"):
+		animation = \"falling\"
+
+	if (animation == \"landing\"):
+		if (player.status == statuses.STANDING):
+			animation = \"standing\"
+			
+		if (player.status == statuses.WALKING):
+			animation = \"walking\"
+			
+		if (player.status == statuses.BLASTING):
+			animation = \"blasting\"
+			
+func _landing_handler() -> void:
+	if (animation == \"falling\"):
+		_play_animation_once(\"landing\")
+		
+func _on_blink_timer_timeout() -> void:
+	is_timer_running = false
+	if (player.status == statuses.STANDING):
+		_play_animation_once(\"standing\")
+		
+func _play_animation_once(_animation_name: String, _animation_speed: float = 1) -> void:
+	play(_animation_name, _animation_speed)
+	sprite_frames.set_animation_loop(_animation_name, false)	
+"
+
+[node name="Player_entity" type="CharacterBody3D"]
+script = ExtResource("1_npw0g")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0600858, -0.0849895, 0)
+shape = SubResource("BoxShape3D_e685i")
+
+[node name="DebugViewport" parent="." instance=ExtResource("3_eh68r")]
+
+[node name="CameraNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.645784, 0)
+script = ExtResource("3_tsb00")
+
+[node name="TwistPivot" type="Node3D" parent="CameraNode"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
+[node name="PitchPivot" type="Node3D" parent="CameraNode/TwistPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.984808, 0.173648, 0, -0.173648, 0.984808, 0, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraNode/TwistPivot/PitchPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 7.45058e-08, 0, -7.45058e-08, 1, 0, -0.437166, 3.75626)
+
+[node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.08246, 0)
+texture_filter = 2
+render_priority = 1
+sprite_frames = ExtResource("4_bhcqr")
+animation = &"sliding"
+script = SubResource("GDScript_qfsao")
+
+[node name="BlinkTimer" type="Timer" parent="AnimatedSprite3D"]
+wait_time = 5.0
+autostart = true
+
+[node name="AudioStreamPlayers" type="Node" parent="."]
+script = ExtResource("5_5j4h3")
+
+[node name="AudioPlayers" type="Node" parent="AudioStreamPlayers"]
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer2" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer3" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer4" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer5" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer6" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer7" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[node name="AudioStreamPlayer8" type="AudioStreamPlayer" parent="AudioStreamPlayers/AudioPlayers"]
+
+[connection signal="status_signal" from="." to="AudioStreamPlayers" method="_on_player_entity_status_signal"]
+[connection signal="animation_finished" from="AnimatedSprite3D" to="AnimatedSprite3D" method="_on_animation_finished"]
+[connection signal="timeout" from="AnimatedSprite3D/BlinkTimer" to="AnimatedSprite3D" method="_on_blink_timer_timeout"]
